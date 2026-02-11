@@ -437,7 +437,24 @@
     let currentSkinId = localStorage.getItem('connect3skin') || 'skin';
     let skinurl = 'assets/Skin.png';
 
-    // Load skins from index.txt, preload PNGs so the SW caches them
+    // Get the best available URL for a skin (localStorage data URL or file path)
+    function getSkinUrl(skin) {
+        return localStorage.getItem('skinimg_' + skin.id) || skin.file;
+    }
+
+    // Apply the saved or default skin to the stylesheet
+    function applySavedSkin() {
+        var saved = skins.find(function(s) { return s.id === currentSkinId; });
+        if (saved) {
+            skinurl = getSkinUrl(saved);
+        } else if (skins.length > 0) {
+            currentSkinId = skins[0].id;
+            skinurl = getSkinUrl(skins[0]);
+        }
+        $('#skinStyle').html('.pop, .square:not(.empty), .first, .second{background-image:url(\'' + skinurl + '\')}');
+    }
+
+    // Load skins from index.txt, cache images as base64 data URLs in localStorage
     function loadSkins() {
         return fetch('assets/index.txt')
             .then(function(r) { return r.text(); })
@@ -448,25 +465,30 @@
                     var name = parts.slice(1).join(',').trim();
                     return { id: file.toLowerCase(), name: name, file: 'assets/' + file + '.png' };
                 });
-                // Preload all skin PNGs so the service worker caches them
-                // Keep references until loaded to prevent GC from cancelling requests
+                // Persist skins metadata for offline use
+                localStorage.setItem('connect3skins', JSON.stringify(skins));
+                // Fetch each skin PNG and store as base64 data URL in localStorage
                 skins.forEach(function(skin) {
-                    var img = new Image();
-                    img.src = skin.file;
-                    loadSkins._imgs = loadSkins._imgs || [];
-                    loadSkins._imgs.push(img);
+                    fetch(skin.file)
+                        .then(function(r) { return r.blob(); })
+                        .then(function(blob) {
+                            var reader = new FileReader();
+                            reader.onload = function() {
+                                localStorage.setItem('skinimg_' + skin.id, reader.result);
+                            };
+                            reader.readAsDataURL(blob);
+                        })
+                        .catch(function() {});
                 });
-                var saved = skins.find(function(s) { return s.id === currentSkinId; });
-                if (saved) {
-                    skinurl = saved.file;
-                } else if (skins.length > 0) {
-                    currentSkinId = skins[0].id;
-                    skinurl = skins[0].file;
-                }
-                $('#skinStyle').html('.pop, .square:not(.empty), .first, .second{background-image:url(\'' + skinurl + '\')}');
+                applySavedSkin();
             })
             .catch(function() {
-                // Offline or failed — keep existing skins array
+                // Offline or failed — restore skins from localStorage
+                var saved = localStorage.getItem('connect3skins');
+                if (saved) {
+                    skins = JSON.parse(saved);
+                }
+                applySavedSkin();
             });
     }
 
@@ -488,10 +510,11 @@
 
         skins.forEach(function(skin) {
             var isSelected = skin.id === currentSkinId;
+            var imgUrl = getSkinUrl(skin);
             var option = $('<div class="skin-option ' + (isSelected ? 'selected' : '') + '" data-skin-id="' + skin.id + '" data-skin-file="' + skin.file + '">' +
                 '<div class="skin-preview">' +
                 [0, 25, 50, 75, 100].map(function(pos) {
-                    return '<div class="skin-preview-tile" style="background-image: url(\'' + skin.file + '\'); background-position-x: ' + pos + '%;"></div>';
+                    return '<div class="skin-preview-tile" style="background-image: url(\'' + imgUrl + '\'); background-position-x: ' + pos + '%;"></div>';
                 }).join('') +
                 '</div>' +
                 '<span class="skin-name">' + skin.name + '</span>' +
@@ -518,11 +541,11 @@
 
     window.selectSkin = function(skinId, skinFile) {
         currentSkinId = skinId;
-        skinurl = skinFile;
+        skinurl = localStorage.getItem('skinimg_' + skinId) || skinFile;
         localStorage.setItem('connect3skin', skinId);
 
         // Update the skin style
-        $('#skinStyle').html(`.pop, .square:not(.empty), .first, .second{background-image:url('${skinurl}')}`);
+        $('#skinStyle').html('.pop, .square:not(.empty), .first, .second{background-image:url(\'' + skinurl + '\')}');
 
         // Update selection UI
         $('.skin-option').removeClass('selected');
