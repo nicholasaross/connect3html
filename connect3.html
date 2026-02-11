@@ -369,7 +369,7 @@
 
     <div id="points"></div>
     <div id="board"></div>
-    <div id="pieces">
+    <div id="pieces" class="hidden">
         <div id="piece" class="vertical"><div class="first" style="background-position-x: 0%"><span class="second" style="background-position-x: 25%"></span></div></div>
     </div>
 
@@ -437,9 +437,32 @@
     let currentSkinId = localStorage.getItem('connect3skin') || 'skin';
     let skinurl = 'assets/Skin.png';
 
-    // Get the best available URL for a skin (localStorage data URL or file path)
+    // Cache of blob object URLs created from localStorage data URLs.
+    // Blob URLs are short strings (blob:https://…) that reference pre-decoded
+    // image data, avoiding the CSS re-parse of large base64 strings that
+    // freezes WKWebView (iOS Chrome) on every style recalculation.
+    var skinBlobUrls = {};
+
+    function dataUrlToBlobUrl(dataUrl) {
+        var parts = dataUrl.split(',');
+        var mime = parts[0].match(/:(.*?);/)[1];
+        var binary = atob(parts[1]);
+        var array = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) {
+            array[i] = binary.charCodeAt(i);
+        }
+        return URL.createObjectURL(new Blob([array], {type: mime}));
+    }
+
+    // Get the best available URL for a skin (blob URL from cached data, or file path)
     function getSkinUrl(skin) {
-        return localStorage.getItem('skinimg_' + skin.id) || skin.file;
+        if (skinBlobUrls[skin.id]) return skinBlobUrls[skin.id];
+        var dataUrl = localStorage.getItem('skinimg_' + skin.id);
+        if (dataUrl) {
+            skinBlobUrls[skin.id] = dataUrlToBlobUrl(dataUrl);
+            return skinBlobUrls[skin.id];
+        }
+        return skin.file;
     }
 
     // Apply the saved or default skin to the stylesheet
@@ -454,9 +477,29 @@
         $('#skinStyle').html('.pop, .square:not(.empty), .first, .second{background-image:url(\'' + skinurl + '\')}');
     }
 
+    // Restore skins from localStorage (offline fallback)
+    function restoreSkinsFromCache() {
+        var saved = localStorage.getItem('connect3skins');
+        if (saved) {
+            skins = JSON.parse(saved);
+        }
+        applySavedSkin();
+    }
+
     // Load skins from index.txt, cache images as base64 data URLs in localStorage
     function loadSkins() {
-        return fetch('assets/index.txt')
+        // Skip network requests entirely when offline — fetch() can hang
+        // indefinitely on iOS Chrome's WKWebView instead of rejecting
+        if (!navigator.onLine) {
+            restoreSkinsFromCache();
+            return Promise.resolve();
+        }
+        return Promise.race([
+            fetch('assets/index.txt'),
+            new Promise(function(_, reject) {
+                setTimeout(function() { reject(new Error('timeout')); }, 4000);
+            })
+        ])
             .then(function(r) { return r.text(); })
             .then(function(text) {
                 skins = text.trim().split('\n').map(function(line) {
@@ -483,12 +526,7 @@
                 applySavedSkin();
             })
             .catch(function() {
-                // Offline or failed — restore skins from localStorage
-                var saved = localStorage.getItem('connect3skins');
-                if (saved) {
-                    skins = JSON.parse(saved);
-                }
-                applySavedSkin();
+                restoreSkinsFromCache();
             });
     }
 
@@ -541,7 +579,8 @@
 
     window.selectSkin = function(skinId, skinFile) {
         currentSkinId = skinId;
-        skinurl = localStorage.getItem('skinimg_' + skinId) || skinFile;
+        var skin = skins.find(function(s) { return s.id === skinId; });
+        skinurl = skin ? getSkinUrl(skin) : skinFile;
         localStorage.setItem('connect3skin', skinId);
 
         // Update the skin style
@@ -566,7 +605,6 @@
         for (let i = 0; i < gridsize * gridsize; i++) {
             $('#board').append('<div class="square empty"></div>');
         }
-        $('.square').slice((gridsize * gridsize - 1) / 2, (gridsize * gridsize - 1) / 2 + 2).removeClass('empty');
     }
 
     // Attach direct event listener to skin button (jQuery delegation fails on iOS Safari)
@@ -767,24 +805,27 @@
                 $("#xyd").html(streak + 1);
 
 
-                // Show points
-                position = $('.pop').eq(1).offset();
+                // Show points (centred on the board)
+                var boardEl = $('#board');
+                var boardPos = boardEl.position();
+                var cy = boardPos.top + boardEl.outerHeight() / 2;
+                var pointsCss = {'top': cy, 'left': 0, 'width': '100%', 'transform': 'translateY(-50%)'};
 
                 if(rankup != false){
-                    $('#points').css('top', position.top).css('left', position.left-40);
+                    $('#points').css(pointsCss);
                     $("#points").html('Rank up!');
                     $("#points").stop(true, true).fadeIn(100).delay(200).fadeOut(400);
                     rankup = false;
                 } else if(streak > 1){
-                    $("#points").css('top', position.top-20).css('left', position.left-41);
-                    $("#points").html('x'+streak +'</br>streak'); 
+                    $('#points').css(pointsCss);
+                    $("#points").html('x'+streak +'<br>streak');
                     $("#points").stop(true, true).fadeIn(100).delay(200).fadeOut(400, function() {
-                        $('#points').css('top', position.top).css('left', position.left);
-                        $("#points").html('+' + add); 
+                        $('#points').css(pointsCss);
+                        $("#points").html('+' + add);
                         $("#points").fadeIn(100).delay(200).fadeOut(400);
                     });
                 } else {
-                    $('#points').css('top', position.top).css('left', position.left);
+                    $('#points').css(pointsCss);
                     $("#points").html('+'+add);
                     $("#points").stop(true, true).fadeIn(100).delay(200).fadeOut(400);
                 }
@@ -812,10 +853,15 @@ function restart(){
     $('#points').stop(true, true).hide();
     $('.square').css("background-position-x", "");
     $('.square').addClass('empty');
-    $('.square').slice((gridsize * gridsize - 1) / 2, (gridsize * gridsize - 1) / 2 + 2).removeClass('empty');
     $('#gameover').addClass('hidden');
     $('#pieces').removeClass('hidden');
     $('#piece').css({ top: 0, left: 0 });
+    addPiece();
+}
+
+// Start fresh game if not restored from localStorage
+if (!localStorage.getItem('connect3test')) {
+    $('#pieces').removeClass('hidden');
     addPiece();
 }
 
