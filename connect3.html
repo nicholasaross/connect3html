@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect 3</title>
+    <meta http-equiv="Content-Language" content="en">
+    <meta name="language" content="en">
+    <meta name="description" content="Play Connect 3 - The fun and addicting puzzle game">
+    <meta name="keywords" content="Connect 3, puzzle game, fun games, brain teasers, challenging puzzles">
+
+    <meta property="og:title" content="Connect 3">
+    <meta property="og:description" content="Play Connect 3 - The fun and addicting puzzle game">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="512x512.png">
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2d3e75">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#2d3e75">
+    <meta name="apple-mobile-web-app-title" content="Connect 3">
+
+    <link rel="icon" type="image/png" sizes="192x192" href="192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="512x512.png">
+    <link rel="apple-touch-icon" href="192x192.png">
+
+    <meta name="robots" content="index, follow">
+
+    <style>
+        *{
+            box-sizing: border-box;
+            font-weight: bold;
+            margin: 0px; 
+            padding-top: 0px;
+            font-family: monospace;
+            font-weight: 800;
+        }   
+
+        body {
+            text-align: center;
+            background: #2d3e75;
+            color:white;
+            overflow: hidden;
+            touch-action: manipulation;
+            overscroll-behavior: none;
+            font-weight: bold;
+            user-select: none;
+        }
+
+        .container{
+            max-width: 420px;
+            margin: auto;
+            padding: 20px;
+            padding-top: 30px;
+            position: relative;
+        }
+
+        h1{
+            font-size: 26px;
+            margin-bottom:20px;
+        }
+
+        h2{
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .flex{
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .flex div {
+            flex: 1; 
+            font-size: 28px;
+        }
+
+        #board{
+            overflow: hidden;
+            background: #34364b;
+            border-radius: 5px;
+            border: solid 2px #20253a;
+            margin-left: -2px;
+            box-sizing: content-box;
+        }
+
+        .square {
+            float:left;
+            display: inline-block;
+            aspect-ratio: 1 / 1;
+            background-color: #252f4f;
+            border:2px solid #20253b;
+        }
+
+        .square:not(.empty) {
+            background-size: cover;
+            background-repeat: no-repeat; 
+        }
+
+        #points {
+            position: absolute;
+            display: none;
+            color:white;
+            z-index: 999;   
+            text-shadow: 0 0 5px black, 0 0 10px black;
+            font-size: 34px;
+            text-align: center;
+        }
+
+        #board, #pieces {
+            touch-action: none;
+        }
+
+        #pieces {
+            display: flex;
+            justify-content: center;
+        }
+
+        #piece{
+            border-top: 80px solid transparent;
+            border-bottom: 80px solid transparent;
+            border-left: 100px solid transparent;
+            border-right: 100px solid transparent;
+            box-sizing: content-box;
+            cursor: grab; 
+        }
+
+        .horizontal{
+            margin-top:-30px;
+        }
+
+        .vertical {
+            margin-top: 20px;
+        }
+
+        .first {
+            aspect-ratio: 1 / 1;     
+            border:4px solid #20253b;
+            background-size: cover;
+        }
+
+        .second{
+            position: absolute;
+            width: 100%;
+            aspect-ratio: 1 / 1;     
+            border:4px solid #20253b;
+            background-size: cover;
+        }
+
+        .horizontal div span {
+            top: 0px;
+            left: calc(100% - 4px);
+        }
+
+        .vertical div span {
+            top: calc(-100% + 4px);
+            left: 0px;
+        }
+
+        .highlight {
+            filter: brightness(190%);
+        }
+
+        #gameover {
+            margin-top: 30px;
+        }
+
+        #restart {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: lightblue;
+            border: none;
+            border-radius: 5px;
+        }
+
+
+        @keyframes pop {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        .pop {
+            animation: pop 0.3s forwards;
+            background-size: cover;
+        }
+
+        .ui-draggable-dragging {
+            cursor: grabbing!important;
+        }
+
+        .hidden{
+            display: none!important;
+        }
+
+        .modal{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:#00000082;
+            z-index: 999;
+        }
+
+        .modalinner{
+            width:90%;
+            max-width: 425px;
+            margin: auto;
+            margin-top: 160px;
+            max-height: 420px;
+            padding: 20px;
+            color:black;
+            background: white;
+            position: relative;
+            text-align: left;
+            overflow-y: scroll;
+            border-radius: 0px;
+            font-size: 18px;
+        }
+
+        .modal .close{
+            float: right;
+            position: sticky;
+            top: -20px;
+            cursor: pointer;
+            padding: 20px;
+            margin-top: -20px;
+            margin-right: -20px;
+            font-size: 24px;
+            margin-bottom: -42px;
+        }
+
+        .togglemodal{
+            cursor: pointer;
+        }
+
+        table{
+            width:100%;
+        }
+
+        td{
+            padding-bottom: 10px;
+        }
+
+        .skin-btn {
+            position: absolute;
+            right: 20px;
+            top: 30px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: rgba(255,255,255,0.8);
+            transition: color 0.2s;
+            z-index: 100;
+            padding: 10px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .skin-btn:hover, .skin-btn:active {
+            color: rgba(255,255,255,1);
+        }
+
+        .skin-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000cc;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .skin-modal-inner {
+            background: #34364b;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 350px;
+            width: 90%;
+        }
+
+        .skin-modal h2 {
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        .skin-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .skin-option {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 10px;
+            background: #252f4f;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: border-color 0.2s, transform 0.1s;
+        }
+
+        .skin-option:hover {
+            transform: scale(1.02);
+        }
+
+        .skin-option.selected {
+            border-color: #6a9fff;
+        }
+
+        .skin-preview {
+            display: flex;
+            gap: 2px;
+        }
+
+        .skin-preview-tile {
+            width: 36px;
+            height: 36px;
+            background-size: 500% 100%;
+            border-radius: 4px;
+        }
+
+        .skin-name {
+            font-size: 16px;
+            flex: 1;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button class="skin-btn" onclick="openSkinPicker()">🎨</button>
+    <div class="header togglemodal">
+        <h1>CONNECT 3</h1>
+        <div class="flex">
+            <div>
+                <h2>BEST</h2>
+                <div id="best">0</div>
+            </div>
+
+            <div>
+                <h2>SCORE</h2>
+                <div id="score">0</div>
+            </div>
+
+            <div>
+                <h2>RANK</h2>
+                <div id="rank">🐣</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="points"></div>
+    <div id="board"></div>
+    <div id="pieces">
+        <div id="piece" class="vertical"><div class="first" style="background-position-x: 0%"><span class="second" style="background-position-x: 25%"></span></div></div>
+    </div>
+
+    <div id="gameover" class="hidden">
+        <h1>GAME OVER</h1>
+        <button id="restart">PLAY AGAIN</button>
+    </div>
+    <div class="hidden"><div id="xye">0</div><div id="xyd">1</div><div id="xyc">0</div></div>
+
+    <div class="modal hidden">
+        <div class="modalinner">
+            <div id="scores" class="togglemodal close">x</div>
+            <table>
+              <tr>
+                <td>🐣 Beginner</td>
+                <td>50</td>
+            </tr>
+            <tr>
+                <td>🐟 Novice</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td>🐢 Intermediate</td>
+                <td>200</td>
+            </tr>
+            <tr>
+                <td>🦅 Advanced</td>
+                <td>300</td>
+            </tr>
+            <tr>
+                <td>🦁 Expert</td>
+                <td>400</td>
+            </tr>
+            <tr>
+                <td>🐉 Master</td>
+                <td>500</td>
+            </tr>
+            <tr>
+                <td>🦄 Legend</td>
+                <td>1000</td>
+            </tr>
+        </table>
+    </div>
+</div>
+</div>
+
+<div id="skinModal" class="skin-modal hidden">
+    <div class="skin-modal-inner">
+        <h2>CHOOSE SKIN</h2>
+        <div class="skin-options" id="skinOptions"></div>
+    </div>
+</div>
+<script src="service-worker-register.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<script>
+// Minimal Touch Punch - maps touch events to mouse events for jQuery UI
+(function(){var a=$.ui.mouse.prototype,b=a._mouseInit,c=a._mouseDestroy,d;function e(g,h){if(g.originalEvent.touches.length>1)return;var i=g.originalEvent.changedTouches[0],j=document.createEvent("MouseEvents");j.initMouseEvent(h,true,true,window,1,i.screenX,i.screenY,i.clientX,i.clientY,false,false,false,false,0,null);g.target.dispatchEvent(j)}a._touchStart=function(g){if(d||!this._mouseCapture(g.originalEvent.changedTouches[0]))return;d=true;this._touchMoved=false;e(g,"mouseover");e(g,"mousemove");e(g,"mousedown")};a._touchMove=function(g){if(!d)return;this._touchMoved=true;e(g,"mousemove")};a._touchEnd=function(g){if(!d)return;e(g,"mouseup");e(g,"mouseout");if(!this._touchMoved)e(g,"click");d=false};a._mouseInit=function(){var g=this;g.element.bind({touchstart:$.proxy(g,"_touchStart"),touchmove:$.proxy(g,"_touchMove"),touchend:$.proxy(g,"_touchEnd")});b.call(g)};a._mouseDestroy=function(){this.element.unbind({touchstart:$.proxy(this,"_touchStart"),touchmove:$.proxy(this,"_touchMove"),touchend:$.proxy(this,"_touchEnd")});c.call(this)}})();
+</script>
+<script>
+    // Available skins - loaded dynamically from assets/index.txt
+    let skins = [];
+
+    // Load saved skin or default
+    let currentSkinId = localStorage.getItem('connect3skin') || 'skin';
+    let skinurl = 'assets/Skin.png';
+
+    // Fetch skin index and update
+    fetch('assets/index.txt')
+        .then(r => r.text())
+        .then(text => {
+            skins = text.trim().split('\n').map(line => {
+                const [file, ...rest] = line.split(',');
+                return { id: file.trim().toLowerCase(), name: rest.join(',').trim(), file: `assets/${file.trim()}.png` };
+            });
+            const saved = skins.find(s => s.id === currentSkinId);
+            if (saved) {
+                skinurl = saved.file;
+            } else if (skins.length > 0) {
+                currentSkinId = skins[0].id;
+                skinurl = skins[0].file;
+            }
+            $('#skinStyle').html(`.pop, .square:not(.empty), .first, .second{background-image:url('${skinurl}')}`);
+        });
+
+    gridsize = 7;
+    rankup = false;
+    backgrounds = ['0%', '25%', '50%', '75%', '100%'];
+
+    // Create dynamic style element for skin
+    const skinStyle = $('<style id="skinStyle">').html(`.pop, .square:not(.empty), .first, .second{background-image:url('${skinurl}')}`);
+    skinStyle.appendTo('head');
+    $('<style>').html(`.square { width: calc(100% / ${gridsize}); } #piece { width: calc(100% / ${gridsize} + 4px); } .horizontal { margin-left: calc(-100% / ${gridsize} - 4px); }`).appendTo('head');
+
+    // Skin picker functions - explicitly global
+    window.openSkinPicker = function() {
+        const optionsContainer = $('#skinOptions');
+        optionsContainer.empty();
+
+        skins.forEach(skin => {
+            const isSelected = skin.id === currentSkinId;
+            const option = $(`
+                <div class="skin-option ${isSelected ? 'selected' : ''}" data-skin-id="${skin.id}" data-skin-file="${skin.file}">
+                    <div class="skin-preview">
+                        ${[0, 25, 50, 75, 100].map(pos =>
+                            `<div class="skin-preview-tile" style="background-image: url('${skin.file}'); background-position-x: ${pos}%;"></div>`
+                        ).join('')}
+                    </div>
+                    <span class="skin-name">${skin.name}</span>
+                </div>
+            `);
+            option.on('click touchend', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                selectSkin(skin.id, skin.file);
+                closeSkinPicker();
+            });
+            optionsContainer.append(option);
+        });
+
+        $('#skinModal').removeClass('hidden');
+    };
+
+    window.closeSkinPicker = function() {
+        $('#skinModal').addClass('hidden');
+    };
+
+    window.selectSkin = function(skinId, skinFile) {
+        currentSkinId = skinId;
+        skinurl = skinFile;
+        localStorage.setItem('connect3skin', skinId);
+
+        // Update the skin style
+        $('#skinStyle').html(`.pop, .square:not(.empty), .first, .second{background-image:url('${skinurl}')}`);
+
+        // Update selection UI
+        $('.skin-option').removeClass('selected');
+        $(`.skin-option[data-skin-id="${skinId}"]`).addClass('selected');
+    };
+
+    isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
+    // Load game if already playing
+    if(localStorage.getItem('connect3test')){
+        $('.container').html(localStorage.getItem('connect3test'));
+        // Ensure skin button exists (may be missing from old saved states)
+        if (!$('.container .skin-btn').length) {
+            $('.container').prepend('<button class="skin-btn" onclick="openSkinPicker()">🎨</button>');
+        }
+        $('#points').hide();
+    } else{
+        for (let i = 0; i < gridsize * gridsize; i++) {
+            $('#board').append('<div class="square empty"></div>');
+        }
+        $('.square').slice((gridsize * gridsize - 1) / 2, (gridsize * gridsize - 1) / 2 + 2).removeClass('empty');
+    }
+
+    // Attach direct event listener to skin button (jQuery delegation fails on iOS Safari)
+    var skinBtnEl = document.querySelector('.skin-btn');
+    if (skinBtnEl) {
+        skinBtnEl.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            openSkinPicker();
+        }, {passive: false});
+        skinBtnEl.addEventListener('click', function() {
+            openSkinPicker();
+        });
+    }
+
+    // Add piece
+    function addPiece(){
+        $('#piece').css({ top: 0, left: 0 });
+
+        random1 = Math.floor(Math.random() * backgrounds.length);
+        random2 = Math.floor(Math.random() * backgrounds.length);
+
+        background1 = backgrounds[random1];
+        background2 = backgrounds[random2];
+
+        isHorizontal = Math.random() > 0.5;
+        type = isHorizontal ? 'horizontal' : 'vertical';
+
+        $('#piece').removeClass().addClass(type);
+        $('.first').css("background-position-x", background1);
+        $('.second').css("background-position-x", background2);
+
+        localStorage.setItem('connect3test', $('.container').html());
+        for (let i = 0; i < gridsize*gridsize; i++) {
+            if (validate(i, isHorizontal)) {
+                return true;
+            }
+        }
+        if(isHorizontal){
+            $('#piece').removeClass().addClass('vertical');
+            isHorizontal = false; 
+        } else {
+            $('#piece').removeClass().addClass('horizontal');
+            isHorizontal = true;  
+        }
+
+        localStorage.setItem('connect3test', $('.container').html());
+        for (let i = 0; i < gridsize*gridsize; i++) {
+            if (validate(i, isHorizontal)) {
+                return true;
+            }
+        }
+        gameover()
+    }
+
+    // Drag piece
+    $("#piece").draggable({
+        distance: 0,
+        revert: function (dropTarget) {
+            return !dropTarget;
+        },
+        ...(isMobile && {cursorAt: {top: 210},}),
+
+        drag: function (event, ui) {
+            $('.highlight').removeClass('highlight'); 
+            index = $(".square").index($(".ui-droppable-hover")); 
+            isHorizontal = $('#piece').hasClass('horizontal');
+            if (index !== -1 && validate(index, isHorizontal)) {
+                $(".square").eq(index).addClass('highlight');
+                $(".square").eq(isHorizontal ? index + 1 : index - gridsize).addClass('highlight');
+            }
+        },
+        revertDuration: 200
+    });
+
+    // Validate drop
+    function validate(index, isHorizontal) {
+        squares = $(".square");
+        if (isHorizontal) {
+            return (index % gridsize !== gridsize-1) && squares.eq(index).hasClass("empty") && squares.eq(index + 1).hasClass("empty");
+        } else {
+            return index-gridsize > -1 && squares.eq(index).hasClass("empty") && squares.eq(index - gridsize).hasClass("empty");
+        }
+    }
+
+    // Drop piece
+    $(".square").droppable({
+        accept: "#piece",
+        drop: function (event, ui) {
+
+            if($('.highlight').length < 1){
+                $('#piece').animate({top: 0,left: 0}, 200);
+                return;
+            }
+
+            if($('.vertical').length < 1){
+                background1 = $('.first').css('background-position-x');
+                background2 = $('.second').css('background-position-x');    
+            } else {
+                background1 = $('.second').css('background-position-x');
+                background2 = $('.first').css('background-position-x');    
+            }
+
+            $('.highlight').first().css("background-position-x", background1);
+            $('.highlight').last().css("background-position-x", background2);
+            $('.highlight').removeClass('highlight empty');
+
+            if ('vibrate' in navigator) {navigator.vibrate(20)}
+
+                // Check lines
+            squares = $(".square");
+            directions = [
+            { x: 1, y: 0 }, 
+            { x: 0, y: 1 },
+            ];
+
+            const toClear = new Set();
+
+            for (let i = 0; i < gridsize*gridsize; i++) {
+                x = i % gridsize;
+                y = Math.floor(i / gridsize);
+                position = squares.eq(i).css("background-position-x");
+
+
+                if (squares.eq(i).hasClass('empty')) continue;
+
+                for (dir of directions) {
+                    line = [i];
+
+                    for (step = 1; step < gridsize; step++) {
+                        nx = x + dir.x * step;
+                        ny = y + dir.y * step;
+                        ni = ny * gridsize + nx;
+
+                        if (nx < 0 || nx >= gridsize || ny < 0 || ny >= gridsize) break;
+                        if (squares.eq(ni).css("background-position-x") !== position || squares.eq(ni).hasClass('empty')) break;
+                        line.push(ni);
+                    }
+
+                    if (line.length >= 3) {
+                        for (idx of line) {
+                            toClear.add(idx);
+                        }
+                    }
+                }
+            }
+
+            // Clear lines
+            if (toClear.size > 0) {
+                toClear.forEach((idx) => {
+                    const square = squares.eq(idx);
+                    square.addClass("pop");
+                    square.addClass("empty");
+                    setTimeout(() => {
+                        square.css("background-position-x", "");
+                        square.removeClass("pop");
+                        localStorage.setItem('connect3test', $('.container').html());
+                    }, 200);
+                });
+
+
+                // Update score
+                streak = Number($('#xyd').html());
+                score =  Number($('#xye').html());
+                best =  Number($('#xyc').html());
+                add = toClear.size * streak;
+                newscore = score+add;
+
+
+
+                if(newscore > best){
+                    $('#xyc').html(newscore);
+                    $('#best').html(newscore)
+
+                    // Update rank
+                    if (newscore > 999) {
+                        rankup = '🦄';
+                    } else if (newscore > 499) {
+                        rankup = '🐉';
+                    } else if (newscore > 399) {
+                        rankup = '🦁';
+                    } else if (newscore > 299) {
+                        rankup = '🦅';
+                    } else if (newscore > 199) {
+                        rankup = '🐢';
+                    } else if (newscore > 99) {
+                        rankup = '🐟';
+                    }
+
+                    if (rankup && rankup !== $('#rank').html()) {
+                        $('#rank').html(rankup);
+                    } else{
+                        rankup = false;
+                    }
+                }
+
+                $("#score").html(newscore);
+                $("#xye").html(score + add);
+                $("#xyd").html(streak + 1);
+
+
+                // Show points
+                position = $('.pop').eq(1).offset();
+
+                if(rankup != false){
+                    $('#points').css('top', position.top).css('left', position.left-40);
+                    $("#points").html('Rank up!');
+                    $("#points").stop(true, true).fadeIn(100).delay(200).fadeOut(400);
+                    rankup = false;
+                } else if(streak > 1){
+                    $("#points").css('top', position.top-20).css('left', position.left-41);
+                    $("#points").html('x'+streak +'</br>streak'); 
+                    $("#points").stop(true, true).fadeIn(100).delay(200).fadeOut(400, function() {
+                        $('#points').css('top', position.top).css('left', position.left);
+                        $("#points").html('+' + add); 
+                        $("#points").fadeIn(100).delay(200).fadeOut(400);
+                    });
+                } else {
+                    $('#points').css('top', position.top).css('left', position.left);
+                    $("#points").html('+'+add);
+                    $("#points").stop(true, true).fadeIn(100).delay(200).fadeOut(400);
+                }
+            } else {
+                //Reset streak
+                $('#xyd').html(1);
+            }
+            addPiece();
+        },
+    });
+
+
+// Game over
+function gameover(){
+    $('#pieces').addClass('hidden');
+    $('#gameover').removeClass('hidden');
+    localStorage.setItem('connect3test', $('.container').html());
+}
+
+// Restart game
+function restart(){
+    $('#xye').html(0);
+    $('#score').html(0);
+    $('#xyd').html(1);
+    $('#points').stop(true, true).hide();
+    $('.square').css("background-position-x", "");
+    $('.square').addClass('empty');
+    $('.square').slice((gridsize * gridsize - 1) / 2, (gridsize * gridsize - 1) / 2 + 2).removeClass('empty');
+    $('#gameover').addClass('hidden');
+    $('#pieces').removeClass('hidden');
+    $('#piece').css({ top: 0, left: 0 });
+    addPiece();
+}
+
+// Block scroll
+window.addEventListener('scroll', () => {window.scrollTo(0, 0);});
+
+
+// Block double click
+document.addEventListener('dblclick', function(e) {e.preventDefault();}, {passive: false});
+
+// Show modal
+$(document).on('click', '.togglemodal', function() {
+    $('.modal').toggleClass('hidden');
+});
+
+// Unified tap handler — click for desktop, touchend for iOS
+function onTap(el, handler, opts) {
+    if (!el) return;
+    el.addEventListener('click', handler);
+    el.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        handler.call(this, e);
+    }, {passive: false});
+    if (opts && opts.claimTouch) {
+        el.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+        }, {passive: false});
+    }
+}
+
+// Skin button (delegated — matches restart button pattern for iOS Safari compatibility)
+$(document).on('touchend', '.skin-btn', function(e) {
+    e.preventDefault();
+    openSkinPicker();
+});
+$(document).on('click', '.skin-btn', function() {
+    openSkinPicker();
+});
+
+// Restart button (delegated — element is inside .container which is restored from localStorage)
+$(document).on('touchend', '#restart', function(e) {
+    e.preventDefault();
+    restart();
+});
+$(document).on('click', '#restart', function() {
+    restart();
+});
+
+// Skin modal backdrop (delegated — modal may not exist yet)
+$(document).on('touchend', '#skinModal', function(e) {
+    if (e.target === this) {
+        e.preventDefault();
+        closeSkinPicker();
+    }
+});
+$(document).on('click', '#skinModal', function(e) {
+    if (e.target === this) {
+        closeSkinPicker();
+    }
+});
+
+// Toggle modal (delegated — add touchend alongside existing click handler)
+$(document).on('touchend', '.togglemodal', function(e) {
+    e.preventDefault();
+    $('.modal').toggleClass('hidden');
+});
+
+
+</script>
+</body>
+</html>
