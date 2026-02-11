@@ -1,15 +1,10 @@
-const CACHE_NAME = 'connect3-v2';
+const CACHE_NAME = 'connect3-v3';
 const urlsToCache = [
   './',
   './connect3.html',
   './manifest.json',
   './192x192.png',
-  './512x512.png',
-  './assets/skin.png',
-  './assets/botp.png',
-  './assets/he-man.png',
-  './assets/Blakes7.png',
-  './assets/Monkey.png'
+  './512x512.png'
 ];
 
 self.addEventListener('install', function(event) {
