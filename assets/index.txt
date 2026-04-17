@@ -1,7 +1,7 @@
-Skin,Classic
+skin,Classic
 Blakes7,Blake’s 7
 gilmore3,Gilmore Girls
 Monkey,Monkey Magic
-Rentaghost,Rentaghost
+rentaghost,Rentaghost
 botp,Battle of the Planets
 he-man,He-Man
